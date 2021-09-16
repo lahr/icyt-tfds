@@ -19,7 +19,7 @@ _CITATION = """
 
 _DATASET = "poldiv-dataset-2.0.0.tar.gz"
 
-_DATA_OPTIONS = ['all-species','all-genus']
+_DATA_OPTIONS = ['all']
 
 
 class PoldivConfig(tfds.core.BuilderConfig):
@@ -37,8 +37,9 @@ class PoldivConfig(tfds.core.BuilderConfig):
             raise ValueError('Selection must be one of %s' % _DATA_OPTIONS)
 
         super(PoldivConfig, self).__init__(
-            version=tfds.core.Version('2.1.0'),
+            version=tfds.core.Version('2.2.0'),
             release_notes={
+                '2.2.0': 'Genus as separate feature',
                 '2.1.0': 'Builder configs for all-species and all-genus',
                 '2.0.0': 'Additional Urtica samples',
                 '1.0.0': 'Full dataset',
@@ -57,8 +58,7 @@ class Poldiv(tfds.core.GeneratorBasedBuilder):
 
     # pytype: disable=wrong-keyword-args
     BUILDER_CONFIGS = [
-        PoldivConfig(name='all-species', selection='all-species', description='All samples without "Others" on species level, channels 1/2/3/4/5/6/9 only'),
-        PoldivConfig(name='all-genus', selection='all-genus', description='All samples without "Others" on genus level, channels 1/2/3/4/5/6/9 only')
+        PoldivConfig(name='all', selection='all', description='All samples without "Others", channels 1/2/3/4/5/6/9 only')
     ]
 
     # pytype: enable=wrong-keyword-args
@@ -66,25 +66,17 @@ class Poldiv(tfds.core.GeneratorBasedBuilder):
     def _info(self) -> tfds.core.DatasetInfo:
         """Returns the dataset metadata."""
 
-        if self.builder_config.selection.startswith('all'):
+        if self.builder_config.selection == 'all':
             channels = {str(i + 1): tfds.features.Tensor(dtype=tf.uint16, shape=(None, None), encoding='zlib') for i in range(6)}
             channels['9'] = tfds.features.Tensor(dtype=tf.uint16, shape=(None, None), encoding='zlib')
             masks = {str(i + 1): tfds.features.Tensor(dtype=tf.uint16, shape=(None, None), encoding='zlib') for i in range(6)}
             masks['9'] = tfds.features.Tensor(dtype=tf.uint16, shape=(None, None), encoding='zlib')
 
-            if 'species' in self.builder_config.selection:
-                class_names_file = './classes-all-species.txt'
-
-            elif 'genus' in self.builder_config.selection:
-                class_names_file = './classes-all-genus.txt'
-
-            else:
-                raise Exception(f'Unknows builder config name {self.builder_config.selection}')
-
             features = {'channels': {**channels},
                         'masks': {**masks},
                         'filename': tf.string,
-                        'label': tfds.features.ClassLabel(names_file=class_names_file)}
+                        'species': tfds.features.ClassLabel(names_file='poldiv/classes-all-species.txt'),
+                        'genus': tfds.features.ClassLabel(names_file='poldiv/classes-all-genus.txt')}
 
         return tfds.core.DatasetInfo(
             builder=self,
@@ -115,25 +107,23 @@ class Poldiv(tfds.core.GeneratorBasedBuilder):
 
         path_regex = r'^([a-zA-Z]+\.?[a-zA-Z]+).+$'
 
-        mapping_reader = csv.DictReader(open('./mapping-species-genus.csv'), fieldnames=['species', 'genus'])
+        mapping_reader = csv.DictReader(open('poldiv/mapping-species-genus.csv'), fieldnames=['species', 'genus'])
         mappings = list(mapping_reader)
 
         for filename, fobj in path_iter:
-            if self.builder_config.selection.startswith('all'):
+            assert filename is not None
+            assert fobj is not None
+
+            if self.builder_config.selection == 'all':
                 m = re.match(path_regex, filename)
-                if m is None:
-                    raise AssertionError(filename)
-                clazz = m.group(1).lower()
-                if clazz == 'others':
+                species = m.group(1).lower()
+                if species == 'others':
                     continue
 
-                if 'genus' in self.builder_config.selection:
-                    found = next((item for item in mappings if item['species'] == clazz), None)
-                    if found is not None:
-                        clazz = found['genus']
-                    else:
-                        raise Exception('Genus not found for {clazz}')
-
+                mapping_result = next((item for item in mappings if item['species'] == species), None)
+                assert mapping_result is not None, 'Genus not found for {species}'
+                genus = mapping_result['genus']
+                
                 img = tiff.imread(fobj)
                 num_channels = img.shape[-1] / 2  # for 2018 there are 7, 9 or 12 channels
 
@@ -156,5 +146,6 @@ class Poldiv(tfds.core.GeneratorBasedBuilder):
                     'channels': {**channels},
                     'masks': {**masks},
                     'filename': filename,
-                    'label': clazz}
+                    'species': species,
+                    'genus': genus}
             yield filename, features
