@@ -4,6 +4,6 @@ authors:
   - family-names: Lahr
     given-names: Daniel
 title: "TensorFlow dataset definitions for the iCyt platform"
-version: 2.2.0
-date-released: 2021-09-16
+version: 2.3.0
+date-released: 2021-09-24
 url: https://github.com/lahr/icyt-tfds

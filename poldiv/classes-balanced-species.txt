@@ -1,0 +1,10 @@
+acer.negundo
+acer.pseudoplatanus
+aesculus.flava
+aesculus.hippocastanum
+betula.pendula
+betula.utilis
+corylus.avellana
+corylus.colurna
+dactylis.glomerata
+quercus.robur

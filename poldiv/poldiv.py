@@ -17,15 +17,13 @@ images with varying width and height."""
 _CITATION = """
 """
 
-_DATASET = "poldiv-dataset-2.0.0.tar.gz"
-
-_DATA_OPTIONS = ['all']
+_DATA_OPTIONS = ['all', 'balanced']
 
 
 class PoldivConfig(tfds.core.BuilderConfig):
     """BuilderConfig for poldiv dataset."""
 
-    def __init__(self, selection=None, **kwargs):
+    def __init__(self, dataset=None, selection=None, **kwargs):
         """Constructs a PoldivConfig.
 
         Args:
@@ -37,8 +35,9 @@ class PoldivConfig(tfds.core.BuilderConfig):
             raise ValueError('Selection must be one of %s' % _DATA_OPTIONS)
 
         super(PoldivConfig, self).__init__(
-            version=tfds.core.Version('2.2.0'),
+            version=tfds.core.Version('2.3.0'),
             release_notes={
+                '2.3.0': 'Builder config for balanced dataset',
                 '2.2.0': 'Genus as separate feature',
                 '2.1.0': 'Builder configs for all-species and all-genus',
                 '2.0.0': 'Additional Urtica samples',
@@ -47,6 +46,7 @@ class PoldivConfig(tfds.core.BuilderConfig):
             },
             **kwargs)
         self.selection = selection
+        self.dataset = dataset
 
 
 class Poldiv(tfds.core.GeneratorBasedBuilder):
@@ -58,7 +58,8 @@ class Poldiv(tfds.core.GeneratorBasedBuilder):
 
     # pytype: disable=wrong-keyword-args
     BUILDER_CONFIGS = [
-        PoldivConfig(name='all', selection='all', description='All samples without "Others", channels 1/2/3/4/5/6/9 only')
+        PoldivConfig(name='all', selection='all', dataset="poldiv-dataset-2.0.0.tar.gz", description='All samples without "Others", channels 1/2/3/4/5/6/9 only'),
+        PoldivConfig(name='balanced', selection='balanced', dataset="poldiv-dataset-balanced-2.0.0.tar.gz", description='Balanced dataset in 10 classes with stratified train/validation/test splits, channels 1/2/3/4/5/6/9 only')
     ]
 
     # pytype: enable=wrong-keyword-args
@@ -66,46 +67,52 @@ class Poldiv(tfds.core.GeneratorBasedBuilder):
     def _info(self) -> tfds.core.DatasetInfo:
         """Returns the dataset metadata."""
 
-        if self.builder_config.selection == 'all':
-            channels = {str(i + 1): tfds.features.Tensor(dtype=tf.uint16, shape=(None, None), encoding='zlib') for i in range(6)}
-            channels['9'] = tfds.features.Tensor(dtype=tf.uint16, shape=(None, None), encoding='zlib')
-            masks = {str(i + 1): tfds.features.Tensor(dtype=tf.uint16, shape=(None, None), encoding='zlib') for i in range(6)}
-            masks['9'] = tfds.features.Tensor(dtype=tf.uint16, shape=(None, None), encoding='zlib')
+        channels = {str(i + 1): tfds.features.Tensor(dtype=tf.uint16, shape=(None, None), encoding='zlib') for i in range(6)}
+        channels['9'] = tfds.features.Tensor(dtype=tf.uint16, shape=(None, None), encoding='zlib')
+        masks = {str(i + 1): tfds.features.Tensor(dtype=tf.uint16, shape=(None, None), encoding='zlib') for i in range(6)}
+        masks['9'] = tfds.features.Tensor(dtype=tf.uint16, shape=(None, None), encoding='zlib')
 
-            features = {'channels': {**channels},
-                        'masks': {**masks},
-                        'filename': tf.string,
-                        'species': tfds.features.ClassLabel(names_file='poldiv/classes-all-species.txt'),
-                        'genus': tfds.features.ClassLabel(names_file='poldiv/classes-all-genus.txt')}
+        features = {'channels': {**channels},
+                    'masks': {**masks},
+                    'filename': tf.string,
+                    'species': tfds.features.ClassLabel(names_file=f'poldiv/classes-{self.builder_config.selection}-species.txt'),
+                    'genus': tfds.features.ClassLabel(names_file=f'poldiv/classes-{self.builder_config.selection}-genus.txt')}
 
         return tfds.core.DatasetInfo(
             builder=self,
             description=_DESCRIPTION,
             features=tfds.features.FeaturesDict(features),
             supervised_keys=None,
-            homepage='https://dataset-homepage/',
+            homepage='https://github.com/lahr/icyt-tfds',
             citation=_CITATION,
         )
 
     def _split_generators(self, dl_manager: tfds.download.DownloadManager):
         """Returns SplitGenerators."""
 
-        path = os.path.join(dl_manager.manual_dir, _DATASET)
+        path = os.path.join(dl_manager.manual_dir, self.builder_config.dataset)
 
         if not tf.io.gfile.exists(path):
             raise AssertionError(
                 f'You must download the dataset .tar.gz file and place it into {dl_manager.manual_dir}')
 
-        path_iter = dl_manager.iter_archive(path)
+        if self.builder_config.selection == 'all':
+            path_iter = dl_manager.iter_archive(path)
+            return {
+                'train': self._generate_examples(path_iter)
+            }
 
-        return {
-            'train': self._generate_examples(path_iter),
-        }
+        elif self.builder_config.selection == 'balanced':
+            return {
+                'train': self._generate_examples(dl_manager.iter_archive(path), 'train'),
+                'valid': self._generate_examples(dl_manager.iter_archive(path), 'valid'),
+                'test': self._generate_examples(dl_manager.iter_archive(path), 'test')
+            }
 
-    def _generate_examples(self, path_iter):
+    def _generate_examples(self, path_iter, split_name=None):
         """Yields examples."""
 
-        path_regex = r'^([a-zA-Z]+\.?[a-zA-Z]+).+$'
+        path_regex = r'^(?:([^/\n.A-Z]+)/)?([a-zA-Z]+\.?[a-zA-Z]+).*$'
 
         mapping_reader = csv.DictReader(open('poldiv/mapping-species-genus.csv'), fieldnames=['species', 'genus'])
         mappings = list(mapping_reader)
@@ -114,38 +121,43 @@ class Poldiv(tfds.core.GeneratorBasedBuilder):
             assert filename is not None
             assert fobj is not None
 
-            if self.builder_config.selection == 'all':
-                m = re.match(path_regex, filename)
-                species = m.group(1).lower()
-                if species == 'others':
-                    continue
+            m = re.match(path_regex, filename)
 
-                mapping_result = next((item for item in mappings if item['species'] == species), None)
-                assert mapping_result is not None, 'Genus not found for {species}'
-                genus = mapping_result['genus']
-                
-                img = tiff.imread(fobj)
-                num_channels = img.shape[-1] / 2  # for 2018 there are 7, 9 or 12 channels
+            if self.builder_config.selection == 'balanced' and m.group(1) != split_name:
+                continue
 
-                if num_channels == 7 or num_channels == 9:
-                    channels = {str(i + 1): img[:, :, i] for i in range(0, 6)}
-                    channels['9'] = img[:, :, 6]
-                    masks = {str(i - 6): img[:, :, i] for i in range(7, 13)}
-                    masks['9'] = img[:, :, 13]
+            species = m.group(2).lower()
 
-                elif num_channels == 12:
-                    channels = {str(i + 1): img[:, :, i] for i in range(0, 6)}
-                    channels['9'] = img[:, :, 8]
-                    masks = {str(i - 11): img[:, :, i] for i in range(12, 18)}
-                    masks['9'] = img[:, :, 20]
+            if species == 'others':
+                continue
 
-                else:
-                    raise AssertionError(f'Unknown number of channels ({num_channels}) for file {filename}')
+            mapping_result = next((item for item in mappings if item['species'] == species), None)
+            assert mapping_result is not None, f'Genus not found for {species}'
+            genus = mapping_result['genus']
+            
+            img = tiff.imread(fobj)
+            num_channels = img.shape[-1] / 2  # for 2018 there are 7, 9 or 12 channels
 
-                features = {
-                    'channels': {**channels},
-                    'masks': {**masks},
-                    'filename': filename,
-                    'species': species,
-                    'genus': genus}
+            if num_channels == 7 or num_channels == 9:
+                channels = {str(i + 1): img[:, :, i] for i in range(0, 6)}
+                channels['9'] = img[:, :, 6]
+                masks = {str(i - 6): img[:, :, i] for i in range(7, 13)}
+                masks['9'] = img[:, :, 13]
+
+            elif num_channels == 12:
+                channels = {str(i + 1): img[:, :, i] for i in range(0, 6)}
+                channels['9'] = img[:, :, 8]
+                masks = {str(i - 11): img[:, :, i] for i in range(12, 18)}
+                masks['9'] = img[:, :, 20]
+
+            else:
+                raise AssertionError(f'Unknown number of channels ({num_channels}) for file {filename}')
+
+            features = {
+                'channels': {**channels},
+                'masks': {**masks},
+                'filename': filename,
+                'species': species,
+                'genus': genus}
+
             yield filename, features

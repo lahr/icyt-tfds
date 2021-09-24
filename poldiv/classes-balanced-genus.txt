@@ -1,0 +1,6 @@
+acer
+aesculus
+betula
+corylus
+poaceae
+quercus
