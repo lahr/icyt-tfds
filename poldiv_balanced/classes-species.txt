@@ -1,9 +1,11 @@
 acer.negundo
 acer.pseudoplatanus
+aesculus.carnea
 aesculus.flava
 aesculus.hippocastanum
 betula.pendula
-betula.utilis
+betula.pubescens
+carpinus.betulus
 corylus.avellana
 corylus.colurna
 dactylis.glomerata
