@@ -12,7 +12,7 @@ _DESCRIPTION = """"""
 _CITATION = """
 """
 
-_DATA_OPTIONS = ['all']
+_DATA_OPTIONS = ['all', 'metabarcoding']
 
 
 class RomaniaConfig(tfds.core.BuilderConfig):
@@ -30,8 +30,9 @@ class RomaniaConfig(tfds.core.BuilderConfig):
             raise ValueError('Selection must be one of %s' % _DATA_OPTIONS)
 
         super(RomaniaConfig, self).__init__(
-            version=tfds.core.Version('1.0.0'),
+            version=tfds.core.Version('2.0.0'),
             release_notes={
+                '2.0.0': 'New dataset, metabarcoding config',
                 '1.0.0': 'Full dataset'
             },
             **kwargs)
@@ -48,15 +49,20 @@ class Romania(tfds.core.GeneratorBasedBuilder):
 
     # pytype: disable=wrong-keyword-args
     BUILDER_CONFIGS = [
-        RomaniaConfig(name='all', selection='all', dataset="romania-train-1.0.0.tar.gz", description='All training samples')
+        RomaniaConfig(name='all', selection='all', dataset="romania-train-2.0.0.tar.gz", description='All training samples'),
+        RomaniaConfig(name='metabarcoding', selection='metabarcoding', dataset="romania-train-2.0.0.tar.gz", description='Training samples that were identified with metabarcoding')
     ]
 
     # pytype: enable=wrong-keyword-args
     def _info(self) -> tfds.core.DatasetInfo:
         """Returns the dataset metadata."""
 
-        channels = {str(i + 1): tfds.features.Tensor(dtype=tf.uint16, shape=(None, None), encoding='zlib') for i in range(12)}
-        masks = {str(i + 1): tfds.features.Tensor(dtype=tf.uint16, shape=(None, None), encoding='zlib') for i in range(12)}
+        channels = {str(i + 1): tfds.features.Tensor(dtype=tf.uint16, shape=(None, None), encoding='zlib') for i in
+                    range(6)}
+        channels['9'] = tfds.features.Tensor(dtype=tf.uint16, shape=(None, None), encoding='zlib')
+        masks = {str(i + 1): tfds.features.Tensor(dtype=tf.uint16, shape=(None, None), encoding='zlib') for i in
+                 range(6)}
+        masks['9'] = tfds.features.Tensor(dtype=tf.uint16, shape=(None, None), encoding='zlib')
 
         features = {'channels': {**channels},
                     'masks': {**masks},
@@ -81,16 +87,19 @@ class Romania(tfds.core.GeneratorBasedBuilder):
             raise AssertionError(
                 f'You must download the dataset .tar.gz file and place it into {dl_manager.manual_dir}')
 
-        if self.builder_config.selection == 'all':
-            path_iter = dl_manager.iter_archive(path)
-            return {
-                'train': self._generate_examples(path_iter)
-            }
+        path_iter = dl_manager.iter_archive(path)
+        return {
+            'train': self._generate_examples(path_iter)
+        }
 
     def _generate_examples(self, path_iter, split_name=None):
         """Yields examples."""
 
-        path_regex = r'^(?:([^/\n.A-Z]+)/)?([a-zA-Z]+\.?[a-zA-Z]+).*$'
+        path_regex = r'^(?:([^/\n.A-Z]+)/)?([a-zA-Z]+\.?[a-zA-Z]+)/(.*)/.*$'
+
+        if self.builder_config.selection == 'metabarcoding':
+            with open('romania/metabarcoding.txt') as f:
+                metabarcoding_data = [line.rstrip() for line in f]
 
         for filename, fobj in path_iter:
             assert filename is not None
@@ -98,14 +107,26 @@ class Romania(tfds.core.GeneratorBasedBuilder):
 
             m = re.match(path_regex, filename)
 
-            species = m.group(2).lower()
+            if self.builder_config.selection == 'metabarcoding':
+                if not m.group(3).startswith(tuple(metabarcoding_data)):
+                    continue
+
+            species = m.group(2)
 
             img = tiff.imread(fobj)
             num_channels = img.shape[-1] / 2
 
-            if num_channels == 12:
-                channels = {str(i + 1): img[:, :, i] for i in range(0, 12)}
-                masks = {str(i - 11): img[:, :, i] for i in range(12, 24)}
+            if num_channels == 7 or num_channels == 9:
+                channels = {str(i + 1): img[:, :, i] for i in range(0, 6)}
+                channels['9'] = img[:, :, 6]
+                masks = {str(i - 6): img[:, :, i] for i in range(7, 13)}
+                masks['9'] = img[:, :, 13]
+
+            elif num_channels == 12:
+                channels = {str(i + 1): img[:, :, i] for i in range(0, 6)}
+                channels['9'] = img[:, :, 8]
+                masks = {str(i - 11): img[:, :, i] for i in range(12, 18)}
+                masks['9'] = img[:, :, 20]
 
             else:
                 raise AssertionError(f'Unknown number of channels ({num_channels}) for file {filename}')

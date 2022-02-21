@@ -134,19 +134,20 @@ FeaturesDict({
 })
 ```
 
-## romania/all
+## romania/{all,metabarcoding}
 
 ### Installation
-1. Request access to the dataset through the [UFZ data research portal](https://www.ufz.de/record/dmp/archive/11920/).
+1. Request access to the dataset through the [UFZ data research portal](https://www.ufz.de/record/dmp/archive/12370).
 2. Copy the provided `.tar.gz` dataset to `~/tensorflow_datasets/downloads/manual/`.
-3. Clone this repository and execute `tfds build --config all romania`. 
+3. Clone this repository and execute `tfds build --config all romania`.
+4. Execute the command with `--config metabarcoding` to create the metabarcoding dataset.
 
 ### Usage
 ```python
 import tensorflow as tf
 import tensorflow_datasets as tfds
 
-(ds_train, ds_validation, ds_test), ds_info = tfds.load('romania/all:1.0.0', split=['train[:80%]','train[80%:90%]','train[90%:]'], with_info=True)
+(ds_train, ds_validation, ds_test), ds_info = tfds.load('romania/all:2.0.0', split=['train[:80%]','train[80%:90%]','train[90%:]'], with_info=True)
 assert isinstance(ds_train, tf.data.Dataset)
 assert isinstance(ds_validation, tf.data.Dataset)
 assert isinstance(ds_test, tf.data.Dataset)
@@ -157,33 +158,23 @@ Output:
 FeaturesDict({
         'channels': FeaturesDict({
             '1': Tensor(shape=(None, None), dtype=tf.uint16),
-            '10': Tensor(shape=(None, None), dtype=tf.uint16),
-            '11': Tensor(shape=(None, None), dtype=tf.uint16),
-            '12': Tensor(shape=(None, None), dtype=tf.uint16),
             '2': Tensor(shape=(None, None), dtype=tf.uint16),
             '3': Tensor(shape=(None, None), dtype=tf.uint16),
             '4': Tensor(shape=(None, None), dtype=tf.uint16),
             '5': Tensor(shape=(None, None), dtype=tf.uint16),
             '6': Tensor(shape=(None, None), dtype=tf.uint16),
-            '7': Tensor(shape=(None, None), dtype=tf.uint16),
-            '8': Tensor(shape=(None, None), dtype=tf.uint16),
             '9': Tensor(shape=(None, None), dtype=tf.uint16),
         }),
         'filename': tf.string,
         'masks': FeaturesDict({
             '1': Tensor(shape=(None, None), dtype=tf.uint16),
-            '10': Tensor(shape=(None, None), dtype=tf.uint16),
-            '11': Tensor(shape=(None, None), dtype=tf.uint16),
-            '12': Tensor(shape=(None, None), dtype=tf.uint16),
             '2': Tensor(shape=(None, None), dtype=tf.uint16),
             '3': Tensor(shape=(None, None), dtype=tf.uint16),
             '4': Tensor(shape=(None, None), dtype=tf.uint16),
             '5': Tensor(shape=(None, None), dtype=tf.uint16),
             '6': Tensor(shape=(None, None), dtype=tf.uint16),
-            '7': Tensor(shape=(None, None), dtype=tf.uint16),
-            '8': Tensor(shape=(None, None), dtype=tf.uint16),
             '9': Tensor(shape=(None, None), dtype=tf.uint16),
         }),
-        'species': ClassLabel(shape=(), dtype=tf.int64, num_classes=104),
+        'species': ClassLabel(shape=(), dtype=tf.int64, num_classes=120),
     })
 ````
