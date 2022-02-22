@@ -93,13 +93,45 @@ FeaturesDict({
 })
 ```
 
+## blood_quality/{canadian,swiss}
+Blood quality dataset.
+
+### Installation
+1. Copy the provided `.zip` dataset to `~/tensorflow_datasets/downloads/manual/`.
+2. Clone this repository and execute `tfds build --config canadian blood_quality`. 
+3. Execute the command with `--config swiss` to create the second dataset.
+
+### Usage
+```python
+import tensorflow as tf
+import tensorflow_datasets as tfds
+
+(ds_train, ds_validation, ds_test), ds_info = tfds.load('blood_quality/canadian:1.0.0', split=['train[:80%]','train[80%:90%]','train[90%:]'], shuffle_files=True, with_info=True)
+assert isinstance(ds_train, tf.data.Dataset)
+assert isinstance(ds_validation, tf.data.Dataset)
+assert isinstance(ds_test, tf.data.Dataset)
+print(ds_info.features)
+```
+Output:
+```
+FeaturesDict({
+    'channels': FeaturesDict({
+        '1': Tensor(shape=(None, None), dtype=tf.uint8),
+        '12': Tensor(shape=(None, None), dtype=tf.uint8),
+        '9': Tensor(shape=(None, None), dtype=tf.uint8),
+    }),
+    'filename': tf.string,
+    'morphology': ClassLabel(shape=(), dtype=tf.int64, num_classes=6),
+})
+```
+
 ## phytoplankton/rep-{0,1}
 Phytoplankton dataset.
 
 ### Installation
 1. Copy the provided `.tar.gz` dataset to `~/tensorflow_datasets/downloads/manual/`.
 2. Clone this repository and execute `tfds build --config rep-0 phytoplankton`. 
-3. Execute the command with `rep-1` to create the second dataset.
+3. Execute the command with `--config rep-1` to create the second dataset.
 
 ### Usage
 ```python
