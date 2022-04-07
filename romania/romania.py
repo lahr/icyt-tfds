@@ -12,7 +12,7 @@ _DESCRIPTION = """"""
 _CITATION = """
 """
 
-_DATA_OPTIONS = ['all', 'metabarcoding']
+_DATA_OPTIONS = ['all', 'artificial-mixtures', 'metabarcoding', 'metabarcoding2', 'metabarcoding3']
 
 
 class RomaniaConfig(tfds.core.BuilderConfig):
@@ -30,8 +30,9 @@ class RomaniaConfig(tfds.core.BuilderConfig):
             raise ValueError('Selection must be one of %s' % _DATA_OPTIONS)
 
         super(RomaniaConfig, self).__init__(
-            version=tfds.core.Version('2.0.0'),
+            version=tfds.core.Version('3.0.0'),
             release_notes={
+                '3.0.0': 'new artificial mixtures and metabarcoding configs',
                 '2.0.0': 'New dataset, metabarcoding config',
                 '1.0.0': 'Full dataset'
             },
@@ -49,8 +50,11 @@ class Romania(tfds.core.GeneratorBasedBuilder):
 
     # pytype: disable=wrong-keyword-args
     BUILDER_CONFIGS = [
-        RomaniaConfig(name='all', selection='all', dataset="romania-train-2.0.0.tar.gz", description='All training samples'),
-        RomaniaConfig(name='metabarcoding', selection='metabarcoding', dataset="romania-train-2.0.0.tar.gz", description='Training samples that were identified with metabarcoding')
+        RomaniaConfig(name='all', selection='all', dataset="romania-train-3.0.0.tar.gz", description='All training samples'),
+        RomaniaConfig(name='artificial-mixtures', selection='artificial-mixtures', dataset="romania-train-3.0.0.tar.gz", description='All training samples'),
+        RomaniaConfig(name='metabarcoding', selection='metabarcoding', dataset="romania-train-3.0.0.tar.gz", description='Training samples that were identified with metabarcoding'),
+        RomaniaConfig(name='metabarcoding2', selection='metabarcoding2', dataset="romania-train-3.0.0.tar.gz", description='Training samples that were identified with metabarcoding, monosamples and art. mixtures'),
+        RomaniaConfig(name='metabarcoding3', selection='metabarcoding3', dataset="romania-train-3.0.0.tar.gz", description='Training samples that were identified with metabarcoding, additional Hypericum samples')
     ]
 
     # pytype: enable=wrong-keyword-args
@@ -67,7 +71,7 @@ class Romania(tfds.core.GeneratorBasedBuilder):
         features = {'channels': {**channels},
                     'masks': {**masks},
                     'filename': tf.string,
-                    'species': tfds.features.ClassLabel(names_file=f'romania/classes-{self.builder_config.selection}-species.txt')}
+                    'species': tfds.features.ClassLabel(names_file=f'romania/{self.builder_config.selection}-classes-species.txt')}
 
         return tfds.core.DatasetInfo(
             builder=self,
@@ -97,9 +101,9 @@ class Romania(tfds.core.GeneratorBasedBuilder):
 
         path_regex = r'^(?:([^/\n.A-Z]+)/)?([a-zA-Z]+\.?[a-zA-Z]+)/(.*)/.*$'
 
-        if self.builder_config.selection == 'metabarcoding':
-            with open('romania/metabarcoding.txt') as f:
-                metabarcoding_data = [line.rstrip() for line in f]
+        if self.builder_config.selection != 'all':
+            with open(f'romania/{self.builder_config.selection}-measurements.txt') as f:
+                measurements = tuple([line.rstrip() for line in f])
 
         for filename, fobj in path_iter:
             assert filename is not None
@@ -107,8 +111,8 @@ class Romania(tfds.core.GeneratorBasedBuilder):
 
             m = re.match(path_regex, filename)
 
-            if self.builder_config.selection == 'metabarcoding':
-                if not m.group(3).startswith(tuple(metabarcoding_data)):
+            if self.builder_config.selection != 'all':
+                if not m.group(3).startswith(measurements):
                     continue
 
             species = m.group(2)
