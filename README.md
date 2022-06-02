@@ -106,7 +106,7 @@ Blood quality dataset.
 import tensorflow as tf
 import tensorflow_datasets as tfds
 
-(ds_train, ds_validation, ds_test), ds_info = tfds.load('blood_quality/canadian:1.0.0', split=['train[:80%]','train[80%:90%]','train[90%:]'], with_info=True)
+(ds_train, ds_validation, ds_test), ds_info = tfds.load('blood_quality/canadian:1.1.0', split=['train[:80%]','train[80%:90%]','train[90%:]'], with_info=True)
 assert isinstance(ds_train, tf.data.Dataset)
 assert isinstance(ds_validation, tf.data.Dataset)
 assert isinstance(ds_test, tf.data.Dataset)
@@ -121,7 +121,7 @@ FeaturesDict({
         '9': Tensor(shape=(None, None), dtype=tf.uint8),
     }),
     'filename': tf.string,
-    'morphology': ClassLabel(shape=(), dtype=tf.int64, num_classes=6),
+    'morphology': ClassLabel(shape=(), dtype=tf.int64, num_classes=7),
 })
 ```
 

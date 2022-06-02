@@ -4,3 +4,4 @@ CrenatedDiscoid
 CrenatedSpheroid
 CrenatedSphere
 SmoothSphere
+Side

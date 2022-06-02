@@ -30,8 +30,9 @@ class BloodQualityConfig(tfds.core.BuilderConfig):
             raise ValueError('Selection must be one of %s' % _DATA_OPTIONS)
 
         super(BloodQualityConfig, self).__init__(
-            version=tfds.core.Version('1.0.0'),
+            version=tfds.core.Version('1.1.0'),
             release_notes={
+                '1.1.0': 'Added "Side" class.',
                 '1.0.0': 'Initial release.'
             },
             **kwargs)
@@ -70,7 +71,6 @@ class BloodQuality(tfds.core.GeneratorBasedBuilder):
 
   def _split_generators(self, dl_manager: tfds.download.DownloadManager):
     """Returns SplitGenerators."""
-    # TODO(blood_quality): Downloads the data and defines the splits
     path = os.path.join(dl_manager.manual_dir, self.builder_config.dataset)
 
     if not tf.io.gfile.exists(path):
@@ -93,7 +93,7 @@ class BloodQuality(tfds.core.GeneratorBasedBuilder):
             m = re.match(path_regex, filename)
             if m:
               morphology = m.group(1)
-              if morphology == 'Side' or morphology == 'Undecidable':
+              if morphology == 'Undecidable':
                 continue
               basename = m.group(2)
               channel = m.group(3)
