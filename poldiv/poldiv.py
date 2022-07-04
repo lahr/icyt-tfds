@@ -1,7 +1,7 @@
 """poldiv dataset."""
 import resource
 low, high = resource.getrlimit(resource.RLIMIT_NOFILE)
-resource.setrlimit(resource.RLIMIT_NOFILE, (high, high))s
+resource.setrlimit(resource.RLIMIT_NOFILE, (high, high))
 
 import csv
 import os
